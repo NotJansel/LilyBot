@@ -25,6 +25,7 @@ import net.irisshaders.lilybot.extensions.moderation.TerminalModeration
 import net.irisshaders.lilybot.extensions.util.CustomCommands
 import net.irisshaders.lilybot.extensions.util.Github
 import net.irisshaders.lilybot.extensions.util.ModUtilities
+import net.irisshaders.lilybot.extensions.util.Modrinth
 import net.irisshaders.lilybot.extensions.util.PublicUtilities
 import net.irisshaders.lilybot.extensions.util.RoleMenu
 import net.irisshaders.lilybot.extensions.util.Tags
@@ -89,6 +90,7 @@ suspend fun main() {
 			add(::TerminalModeration)
 			add(::ThreadControl)
 			add(::ThreadInviter)
+			add(::Modrinth)
 
 			extPhishing {
 				appName = "Lily Bot"
