@@ -33,12 +33,14 @@ class Modrinth : Extension() {
 			description = "Search Modrinth in Discord! Returns the top 5 results."
 
 			action {
+				// todo check the validity of the arguments.version
+
 				val url: StringBuilder = StringBuilder("https://modrinth.com/api/v2/search?")
 				val searchTerms = mutableMapOf(
 					"category" to arguments.category,
-					"version" to arguments.minecraftVersion,
+					"version" to arguments.version,
 					"license" to arguments.license,
-					"project_type" to arguments.projectType,
+					"project_type" to arguments.type,
 				)
 
 				// todo this is a bad way to process this
@@ -121,34 +123,35 @@ class Modrinth : Extension() {
 			description = "The query to search for, most likely a project name"
 		}
 
+		// todo this should be a select menu instead
 		val category by optionalStringChoice {
 			name = "category"
 			description = "The category you want to limit your search to"
 			choices = mutableMapOf(
-				"adventure" to "Adventure",
-				"cursed" to "Cursed",
-				"decoration" to "Decoration",
-				"equipment" to "Equipment",
-				"food" to "Food",
-				"library" to "Library",
-				"magic" to "Magic",
-				"misc" to "Misc",
-				"optimization" to "Optimization",
-				"storage" to "Storage",
-				"technology" to "Technology",
-				"utility" to "Utility",
-				"worldgen" to "Worldgen",
+				"adventure" to "adventure",
+				"cursed" to "cursed",
+				"decoration" to "decoration",
+				"equipment" to "equipment",
+				"food" to "food",
+				"library" to "library",
+				"magic" to "magic",
+				"misc" to "misc",
+				"optimization" to "optimization",
+				"storage" to "storage",
+				"technology" to "technology",
+				"utility" to "utility",
+				"worldgen" to "worldgen",
 			)
 		}
 
-		// todo loader is classes as part of category, this needs proper handling
+		// todo loader is classed as part of category, this needs proper handling
 		val loader by optionalStringChoice {
 			name = "loader"
 			description = "The mod loader you want to limit your search to"
 			choices = mutableMapOf(
-				"forge" to "Forge",
-				"fabric" to "Fabric",
-				"quilt" to "Quilt",
+				"forge" to "forge",
+				"fabric" to "fabric",
+				"quilt" to "quilt",
 			)
 		}
 
@@ -157,42 +160,43 @@ class Modrinth : Extension() {
 			name = "environment"
 			description = "The environment you want to limit your search to. Sever, client, or universal."
 			choices = mutableMapOf(
-				"server" to "Server",
-				"client" to "Client",
-				"universal" to "Universal",
+				"server" to "server",
+				"client" to "client",
+				"universal" to "universal",
 			)
 		}
 
-		val minecraftVersion by optionalString {
-			name = "minecraftVersion"
+		val version by optionalString {
+			name = "version"
 			description = "The Minecraft version to limit your search to. Snapshots are supported."
 		}
 
+		// todo this should also be a select menu
 		val license by optionalStringChoice {
 			name = "license"
 			description = "The license you want to limit your search to."
 			choices = mutableMapOf(
-				"custom" to "Custom",
-				"lgpl" to "LGPL",
-				"apache" to "Apache",
-				"bsd-2-clause" to "BSD-2-Clause",
-				"bsd-3-clause" to "BSD-3-Clause",
-				"bsl" to "BSL",
-				"cc0" to "CC0",
-				"unlicense" to "Unlicense",
-				"mpl" to "MPL",
-				"mit" to "MIT",
-				"arr" to "ARR",
-				"lgpl-3" to "LGPL-3",
+				"custom" to "custom",
+				"lgpl" to "lgpl",
+				"apache" to "apache",
+				"bsd-2-clause" to "bsd-2-clause",
+				"bsd-3-clause" to "bsd-3-clause",
+				"bsl" to "bsl",
+				"cc0" to "cc0",
+				"unlicense" to "unlicense",
+				"mpl" to "mpl",
+				"mit" to "mit",
+				"arr" to "arr",
+				"lgpl-3" to "lgpl-3",
 			)
 		}
 
-		val projectType by optionalStringChoice {
-			name = "projectType"
+		val type by optionalStringChoice {
+			name = "type"
 			description = "The project type you want to limit your search to."
 			choices = mutableMapOf(
-				"mod" to "Mod",
-				"modpack" to "Modpack",
+				"mod" to "mod",
+				"modpack" to "modpack",
 			)
 		}
 	}
