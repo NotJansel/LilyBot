@@ -2,9 +2,7 @@ package net.irisshaders.lilybot.extensions.util
 
 import com.kotlindiscord.kord.extensions.DISCORD_GREEN
 import com.kotlindiscord.kord.extensions.commands.Arguments
-import com.kotlindiscord.kord.extensions.commands.application.slash.converters.impl.optionalStringChoice
 import com.kotlindiscord.kord.extensions.commands.converters.impl.optionalString
-import com.kotlindiscord.kord.extensions.commands.converters.impl.string
 import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.publicSlashCommand
 import com.kotlindiscord.kord.extensions.types.respond
@@ -17,6 +15,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.decodeFromJsonElement
+import org.quiltmc.mappings_hasher.com.google.gson.annotations.SerializedName
 
 class Modrinth : Extension() {
 	override val name = "modrinth"
@@ -30,38 +30,39 @@ class Modrinth : Extension() {
 		 */
 		publicSlashCommand(::ModrinthArgs) {
 			name = "modrinth"
-			description = "Search Modrinth in Discord! Returns the top 5 results."
+			description = "Search Modrinth in Discord! Returns the top 5 results." // todo Change results value
 
 			action {
-				// todo check the validity of the arguments.version
-
-				val url: StringBuilder = StringBuilder("https://modrinth.com/api/v2/search?")
-				val searchTerms = mutableMapOf(
-					"category" to arguments.category,
-					"version" to arguments.version,
-					"license" to arguments.license,
-					"project_type" to arguments.type,
-				)
-
-				// todo this is a bad way to process this
-				searchTerms.forEach {
-					if (it.value != null) {
-						url.append("${it.key}=${it.value}&")
+				respond {
+					embed {
+						color = DISCORD_GREEN
+						timestamp = Clock.System.now()
+						title = "Searching Modrinth"
+						description = if (arguments.query == null) {
+							"Please enter a search term!"
+						} else {
+							"Searching Modrinth for ${arguments.query}..."
+						}
 					}
 				}
 
-				val client = HttpClient()
-				val response = client.request("https://api.modrinth.com/v2/search?limit=1&query=${arguments.query}")
-					.readBytes().decodeToString()
-				client.close()
+				searchModrinth(
+					SearchData(
+						null,
+						null,
+						null,
+						null,
+						null,
+						null
+					)
+				)
 
-				val json = Json { ignoreUnknownKeys = true }
+				// Create an embed with various buttons for search, filtering, and browsing.
+				// An embed should be able to be created with no arguments selected.
+				// If button inputs occur, search Modrinth and reconstruct the embed.
 
-				// todo I don't think this handles errors at all
-				val decodedResponse = json.decodeFromString<ResponseData>(response)
-				val project = json.decodeFromString<ModData>(decodedResponse.hits[0].toString())
-
-				respond {
+				/*
+				channel.createMessage() {
 					// todo this embed can be way over the limit
 					embed {
 						color = DISCORD_GREEN
@@ -112,92 +113,43 @@ class Modrinth : Extension() {
 						}
 					}
 				}
+			 	*/
 			}
 		}
 	}
 
-	// todo All of these are or. It should be possible to search using multiple values for a single argument.
+	/**
+	 * A function that takes search parameters and returns the top 5 results from Modrinth.
+	 *
+	 * @param searchInput The [SearchData] containing the parameters of your search
+	 * @return The top 5 results from Modrinth as [ResponseData]
+	 * @author tempest15
+	 * @since 3.2.0
+	 */
+	private suspend fun searchModrinth(searchInput: SearchData) {
+		val query = null // todo process the SearchData into Modrinth format
+
+		println(searchInput.category)
+
+		val client = HttpClient()
+		val response = client.request("https://api.modrinth.com/v2/search?limit=5&query=$query")
+			.readBytes().decodeToString()
+		client.close()
+
+		val json = Json { ignoreUnknownKeys = true }
+
+		// todo I don't think this handles errors at all
+		val decodedResponse = json.decodeFromString<ResponseData>(response)
+		println(decodedResponse.hits)
+		val mod = json.decodeFromJsonElement<ModData>(decodedResponse.hits)
+		println(mod.author)
+	}
+
 	inner class ModrinthArgs : Arguments() {
-		val query by string {
+		val query by optionalString {
 			name = "query"
-			description = "The query to search for, most likely a project name"
-		}
-
-		// todo this should be a select menu instead
-		val category by optionalStringChoice {
-			name = "category"
-			description = "The category you want to limit your search to"
-			choices = mutableMapOf(
-				"adventure" to "adventure",
-				"cursed" to "cursed",
-				"decoration" to "decoration",
-				"equipment" to "equipment",
-				"food" to "food",
-				"library" to "library",
-				"magic" to "magic",
-				"misc" to "misc",
-				"optimization" to "optimization",
-				"storage" to "storage",
-				"technology" to "technology",
-				"utility" to "utility",
-				"worldgen" to "worldgen",
-			)
-		}
-
-		// todo loader is classed as part of category, this needs proper handling
-		val loader by optionalStringChoice {
-			name = "loader"
-			description = "The mod loader you want to limit your search to"
-			choices = mutableMapOf(
-				"forge" to "forge",
-				"fabric" to "fabric",
-				"quilt" to "quilt",
-			)
-		}
-
-		// todo environment is also a category
-		val environment by optionalStringChoice {
-			name = "environment"
-			description = "The environment you want to limit your search to. Sever, client, or universal."
-			choices = mutableMapOf(
-				"server" to "server",
-				"client" to "client",
-				"universal" to "universal",
-			)
-		}
-
-		val version by optionalString {
-			name = "version"
-			description = "The Minecraft version to limit your search to. Snapshots are supported."
-		}
-
-		// todo this should also be a select menu
-		val license by optionalStringChoice {
-			name = "license"
-			description = "The license you want to limit your search to."
-			choices = mutableMapOf(
-				"custom" to "custom",
-				"lgpl" to "lgpl",
-				"apache" to "apache",
-				"bsd-2-clause" to "bsd-2-clause",
-				"bsd-3-clause" to "bsd-3-clause",
-				"bsl" to "bsl",
-				"cc0" to "cc0",
-				"unlicense" to "unlicense",
-				"mpl" to "mpl",
-				"mit" to "mit",
-				"arr" to "arr",
-				"lgpl-3" to "lgpl-3",
-			)
-		}
-
-		val type by optionalStringChoice {
-			name = "type"
-			description = "The project type you want to limit your search to."
-			choices = mutableMapOf(
-				"mod" to "mod",
-				"modpack" to "modpack",
-			)
+			description = "The query to search for, most likely a project name." +
+					"You will be able to edit this later. You will also be able to filter in other ways."
 		}
 	}
 
@@ -206,28 +158,90 @@ class Modrinth : Extension() {
 		val hits: JsonArray,
 		val limit: Int,
 		val offset: Int,
-		val total_hits: Int
+		@SerializedName("total_hits") val totalHits: Int
 	)
 
 	@Serializable
 	data class ModData(
 		val author: String,
 		val categories: JsonArray,
-		val client_side: String,
-		val date_created: String,
-		val date_modified: String,
+		@SerializedName("client_side") val clientSide: String,
+		@SerializedName("date_created") val dateCreated: String,
+		@SerializedName("date_modified") val dateModified: String,
 		val description: String,
 		val downloads: Int,
 		val follows: Int,
 		val gallery: JsonArray,
-		val icon_url: String,
-		val latest_version: String,
+		@SerializedName("icon_url") val iconUrl: String,
+		@SerializedName("latest_version") val latestVersion: String,
 		val license: String,
-		val project_id: String,
-		val project_type: String,
-		val server_side: String,
+		@SerializedName("project_id") val projectId: String,
+		@SerializedName("project_type") val projectType: String,
+		@SerializedName("server_side") val serverSide: String,
 		val slug: String,
 		val title: String,
 		val versions: JsonArray
+	)
+
+	// todo Many of these likely don't need to be null. Further in investigation is needed.
+	data class SearchData(
+		val query: String?,
+		val category: CategoryData?,
+		val environment: EnvironmentData?,
+		val loader: LoaderData?,
+		val licence: LicenseData?,
+		val projectType: ProjectTypeData?
+	)
+
+	data class CategoryData(
+		val adventure: Boolean?,
+		val cursed: Boolean?,
+		val decoration: Boolean?,
+		val equipment: Boolean?,
+		val food: Boolean?,
+		val library: Boolean?,
+		val magic: Boolean?,
+		val misc: Boolean?,
+		val optimization: Boolean?,
+		val storage: Boolean?,
+		val technology: Boolean?,
+		val utility: Boolean?,
+		val worldgen: Boolean?,
+	)
+
+	data class EnvironmentData(
+		val server: Boolean?,
+		val client: Boolean?,
+		val universal: Boolean?
+	)
+
+	data class LoaderData(
+		val forge: Boolean?,
+		val fabric: Boolean?,
+		val quilt: Boolean?
+	)
+
+	// todo Add a version data class
+	// Use the version manifest https://minecraft.fandom.com/wiki/Version_manifest.json and
+	// https://launchermeta.mojang.com/mc/game/version_manifest_v2.json to validate the version.
+
+	data class LicenseData(
+		val custom: Boolean?,
+		val lgpl: Boolean?,
+		val apache: Boolean?,
+		val bsd2clause: Boolean?,
+		val bsd3clause: Boolean?,
+		val bsl: Boolean?,
+		val cc0: Boolean?,
+		val unlicense: Boolean?,
+		val mpl: Boolean?,
+		val mit: Boolean?,
+		val arr: Boolean?,
+		val lgpl3: Boolean?
+	)
+
+	data class ProjectTypeData(
+		val mod: Boolean?,
+		val modpack: Boolean?
 	)
 }
