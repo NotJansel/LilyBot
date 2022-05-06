@@ -3,6 +3,9 @@ package net.irisshaders.lilybot.extensions.util
 import com.kotlindiscord.kord.extensions.DISCORD_GREEN
 import com.kotlindiscord.kord.extensions.commands.Arguments
 import com.kotlindiscord.kord.extensions.commands.converters.impl.optionalString
+import com.kotlindiscord.kord.extensions.components.components
+import com.kotlindiscord.kord.extensions.components.ephemeralSelectMenu
+import com.kotlindiscord.kord.extensions.components.menus.EphemeralSelectMenu
 import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.publicSlashCommand
 import com.kotlindiscord.kord.extensions.types.respond
@@ -23,7 +26,7 @@ class Modrinth : Extension() {
 
 	override suspend fun setup() {
 		/**
-		 * Commands for accessing/previewing projects from Modrinth
+		 * A command to dynamically search Modrinth from Discord
 		 *
 		 * @author tempest15
 		 * @since 3.2.0
@@ -33,7 +36,8 @@ class Modrinth : Extension() {
 			description = "Search Modrinth in Discord! Returns the top 5 results." // todo Change results value
 
 			action {
-				respond {
+				var menu: EphemeralSelectMenu
+				var response = respond {
 					embed {
 						color = DISCORD_GREEN
 						timestamp = Clock.System.now()
@@ -44,7 +48,40 @@ class Modrinth : Extension() {
 							"Searching Modrinth for ${arguments.query}..."
 						}
 					}
+					components {
+						menu = ephemeralSelectMenu(0) {
+							placeholder = "Adjust your search parameters"
+							maximumChoices = 1
+							option("Edit search keyword", "keyword") {
+								description = "Change the search term for your search"
+							}
+							option("Edit category filter", "category") {
+								description = "Change which categories you want to limit your search to"
+							}
+							option("Edit environment filter", "environment") {
+								description = "Change which environment(s) you want to limit your search to"
+							}
+							option("Edit loader filter", "loader") {
+								description = "Change which mod loader(s) you want to limit your search to"
+							}
+							option("Edit license filter", "license") {
+								description = "Change which license(s) you want to limit your search to"
+							}
+							option("Edit project type filter", "type") {
+								description = "Change which project type(s) you want to limit your search to"
+							}
+
+							action {
+								val selection = this.selected
+								respond { content = "You picked $selection" }
+							}
+						}
+					}
 				}
+
+				// Create an embed with various buttons for search, filtering, and browsing.
+				// An embed should be able to be created with no arguments selected.
+				// If button inputs occur, search Modrinth and reconstruct the embed.
 
 				searchModrinth(
 					SearchData(
@@ -56,64 +93,6 @@ class Modrinth : Extension() {
 						null
 					)
 				)
-
-				// Create an embed with various buttons for search, filtering, and browsing.
-				// An embed should be able to be created with no arguments selected.
-				// If button inputs occur, search Modrinth and reconstruct the embed.
-
-				/*
-				channel.createMessage() {
-					// todo this embed can be way over the limit
-					embed {
-						color = DISCORD_GREEN
-						timestamp = Clock.System.now()
-
-						title = "Modrinth search results"
-						description = "**Search term:** `${arguments.query}`" +
-								"\n**Results found:** ${decodedResponse.total_hits}"
-						field {
-							name = "${project.title} by ${project.author}"
-							value = "**Type:** ${project.project_type}\n" +
-									"**Description:** ${project.description}"
-						}
-						field {
-							name = "Project URL"
-							value = "https://modrinth.com/${project.project_type}/${project.project_id}"
-						}
-
-						field {
-							name = "Categories"
-							value = project.categories.joinToString(", ")
-							inline = true
-						}
-
-						field {
-							name = "Environment"
-							value = "Client side: ${project.client_side}\nServer side: ${project.server_side}"
-							inline = true
-						}
-
-						field {
-							name = "Statistics"
-							value = "**Downloads:** ${project.downloads}\n**Followers:** ${project.follows}"
-							inline = true
-						}
-
-						field {
-							name = "Versions"
-							value = project.versions.joinToString(", ")
-							inline = true
-						}
-
-						field {
-							name = "Updates"
-							value = "**Date created:** ${project.date_created}\n" +
-									"**Last modified:** ${project.date_modified}\n" +
-									"**Latest version:** ${project.latest_version}"
-						}
-					}
-				}
-			 	*/
 			}
 		}
 	}
@@ -148,8 +127,7 @@ class Modrinth : Extension() {
 	inner class ModrinthArgs : Arguments() {
 		val query by optionalString {
 			name = "query"
-			description = "The query to search for, most likely a project name." +
-					"You will be able to edit this later. You will also be able to filter in other ways."
+			description = "The query to search for, most likely a project name."
 		}
 	}
 
