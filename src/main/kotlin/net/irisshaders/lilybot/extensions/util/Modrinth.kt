@@ -2,6 +2,7 @@ package net.irisshaders.lilybot.extensions.util
 
 import com.kotlindiscord.kord.extensions.components.components
 import com.kotlindiscord.kord.extensions.components.ephemeralSelectMenu
+import com.kotlindiscord.kord.extensions.components.menus.EphemeralSelectMenuContext
 import com.kotlindiscord.kord.extensions.extensions.Extension
 import com.kotlindiscord.kord.extensions.extensions.publicSlashCommand
 import com.kotlindiscord.kord.extensions.types.respond
@@ -19,7 +20,7 @@ class Modrinth : Extension() {
 	override suspend fun setup() {
 		publicSlashCommand {
 			name = "modrinth"
-			description = "Search Modrinth in Discord!"
+			description = "Search Modrinth for a mod!"
 
 			action {
 				respond {
@@ -40,6 +41,9 @@ class Modrinth : Extension() {
 							option("Edit loader filter", "loader") {
 								description = "Change which mod loader(s) you want to limit your search to"
 							}
+							option("Edit version filter", "version") {
+								description = "Change which version(s) you want to limit your search to"
+							}
 							option("Edit license filter", "license") {
 								description = "Change which license(s) you want to limit your search to"
 							}
@@ -48,26 +52,53 @@ class Modrinth : Extension() {
 							}
 
 							action {
-								// todo actually make these
 								when (this.selected[0]) {
 									"keyword" -> respond { content = "keyword modal" }
-									"category" -> respond { content = "category select menu" }
-									"environment" -> respond { content = "environment select menu" }
-									"loader" -> respond { content = "loader select menu" }
-									"license" -> respond { content = "license select menu" }
-									"type" -> respond { content = "project type select menu" }
+									"category" -> createFilterMenu("category")
+									"environment" -> createFilterMenu("environment")
+									"loader" -> createFilterMenu("loader")
+									"version" -> createFilterMenu("version")
+									"license" -> createFilterMenu("license")
 								}
 							}
 						}
 					}
 				}
-
-				getModLoaders()
-				getModCategories()
-				getMinecraftVersions()
-				getLicenses()
 			}
 		}
+	}
+
+	private suspend fun EphemeralSelectMenuContext.createFilterMenu(filterType: String) {
+		val filterOptions = when (filterType) {
+			"category" -> getModCategories()
+			"environment" -> mutableListOf("server", "client")
+			"loader" -> getModLoaders()
+			"version" -> getMinecraftVersions()
+			"license" -> getLicenses()
+			else -> mutableListOf("something has gone very wrong") // Is there a better way to do this?
+		}
+
+		respond {
+			components {
+				ephemeralSelectMenu {
+					maximumChoices = filterOptions.size
+					placeholder = "Filter by $filterType"
+					filterOptions.forEach {
+						option(it, it)
+					}
+					action {
+						searchModrinth(filterType, this.selected)
+					}
+				}
+			}
+		}
+	}
+
+	private fun searchModrinth(filterType: String, selectedOptions: List<String>) {
+		// todo
+		// below this is just for detekt
+		println(filterType)
+		println(selectedOptions)
 	}
 
 	private suspend fun getModCategories(): MutableList<String> {
