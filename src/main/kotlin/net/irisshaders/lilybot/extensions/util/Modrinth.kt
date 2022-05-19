@@ -54,11 +54,14 @@ class Modrinth : Extension() {
 							action {
 								when (this.selected[0]) {
 									"keyword" -> respond { content = "keyword modal" }
-									"category" -> createFilterMenu("category")
-									"environment" -> createFilterMenu("environment")
-									"loader" -> createFilterMenu("loader")
-									"version" -> createFilterMenu("version")
-									"license" -> createFilterMenu("license")
+									"category" -> createFilterMenu("category", getModCategories())
+									"environment" -> createFilterMenu(
+										"environment",
+										mutableListOf("server", "client")
+									)
+									"loader" -> createFilterMenu("loader", getModLoaders())
+									"version" -> createFilterMenu("version", getMinecraftVersions())
+									"license" -> createFilterMenu("license", getLicenses())
 								}
 							}
 						}
@@ -68,16 +71,25 @@ class Modrinth : Extension() {
 		}
 	}
 
-	private suspend fun EphemeralSelectMenuContext.createFilterMenu(filterType: String) {
-		val filterOptions = when (filterType) {
-			"category" -> getModCategories()
-			"environment" -> mutableListOf("server", "client")
-			"loader" -> getModLoaders()
-			"version" -> getMinecraftVersions()
-			"license" -> getLicenses()
-			else -> mutableListOf("something has gone very wrong") // Is there a better way to do this?
-		}
+	private suspend fun searchModrinth() {
+		val route = "https://api.modrinth.com/v2/search?limit=5&query=iris"
 
+		val client = HttpClient()
+		val response = client.request(route)
+			.readBytes().decodeToString()
+		client.close()
+
+		println(response)
+
+		val json = Json { ignoreUnknownKeys = true }
+		val decodedResponse = json.decodeFromString<SearchResponseData>(response)
+		println(decodedResponse.hits[0].slug)
+	}
+
+	private suspend fun EphemeralSelectMenuContext.createFilterMenu(
+		filterType: String,
+		filterOptions: MutableList<String>
+	) {
 		respond {
 			components {
 				ephemeralSelectMenu {
@@ -87,18 +99,11 @@ class Modrinth : Extension() {
 						option(it, it)
 					}
 					action {
-						searchModrinth(filterType, this.selected)
+						searchModrinth() // this needs to play with other selected options
 					}
 				}
 			}
 		}
-	}
-
-	private fun searchModrinth(filterType: String, selectedOptions: List<String>) {
-		// todo
-		// below this is just for detekt
-		println(filterType)
-		println(selectedOptions)
 	}
 
 	private suspend fun getModCategories(): MutableList<String> {
@@ -137,6 +142,7 @@ class Modrinth : Extension() {
 		return modLoaders
 	}
 
+	// todo this errors because a select menu can only have 25 results
 	// returns only releases
 	private suspend fun getMinecraftVersions(): MutableList<String> {
 		val client = HttpClient()
@@ -172,6 +178,30 @@ class Modrinth : Extension() {
 		}
 		return licenses
 	}
+
+	@Serializable
+	data class SearchResponseData(
+		val hits: List<ProjectData>,
+		val offset: Int,
+		val limit: Int,
+		@SerialName("total_hits") val totalHits: Int
+	)
+
+	@Serializable
+	data class ProjectData(
+		val slug: String,
+		val title: String,
+		val description: String,
+		val categories: MutableList<String>,
+		@SerialName("client_side") val clientSide: String,
+		@SerialName("server_side") val serverSide: String,
+		@SerialName("source_url") val sourceURL: String? = null,
+		@SerialName("discord_url") val discordURL: String? = null,
+		@SerialName("project_type") val projectType: String,
+		val downloads: Int,
+		@SerialName("icon_url") val iconURL: String?,
+		val license: String?
+	)
 
 	@Serializable
 	data class CategoryData(
