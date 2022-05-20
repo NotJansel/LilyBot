@@ -1,5 +1,7 @@
 package net.irisshaders.lilybot.extensions.util
 
+import com.kotlindiscord.kord.extensions.commands.Arguments
+import com.kotlindiscord.kord.extensions.commands.converters.impl.string
 import com.kotlindiscord.kord.extensions.components.components
 import com.kotlindiscord.kord.extensions.components.ephemeralSelectMenu
 import com.kotlindiscord.kord.extensions.components.menus.EphemeralSelectMenuContext
@@ -13,25 +15,31 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import kotlin.collections.List
+import kotlin.collections.MutableList
+import kotlin.collections.MutableMap
+import kotlin.collections.forEach
+import kotlin.collections.mutableListOf
+import kotlin.collections.mutableMapOf
+import kotlin.collections.set
 
 class Modrinth : Extension() {
 	override val name = "modrinth"
 
 	override suspend fun setup() {
-		publicSlashCommand {
+		publicSlashCommand(::ModrinthArgs) {
 			name = "modrinth"
-			description = "Search Modrinth for a mod!"
+			description = "Search Modrinth for a mod!" // todo look into expanding to other project types
 
 			action {
+				var searchFilters = SearchData(arguments.keyword, mutableMapOf(Pair("", "")))
+
 				respond {
 					content = "Use the menu below to narrow your search"
 					components {
 						ephemeralSelectMenu(0) {
 							placeholder = "Adjust your search parameters"
 							maximumChoices = 1
-							option("Edit search keyword", "keyword") {
-								description = "Change the search term for your search"
-							}
 							option("Edit category filter", "category") {
 								description = "Change which categories you want to limit your search to"
 							}
@@ -53,15 +61,32 @@ class Modrinth : Extension() {
 
 							action {
 								when (this.selected[0]) {
-									"keyword" -> respond { content = "keyword modal" }
-									"category" -> createFilterMenu("category", getModCategories())
-									"environment" -> createFilterMenu(
-										"environment",
-										mutableListOf("server", "client")
+									"category" -> searchFilters = createFilterMenu(
+										"category",
+										getModCategories(),
+										searchFilters
 									)
-									"loader" -> createFilterMenu("loader", getModLoaders())
-									"version" -> createFilterMenu("version", getMinecraftVersions())
-									"license" -> createFilterMenu("license", getLicenses())
+									"environment" -> searchFilters = createFilterMenu(
+										"environment",
+										mutableListOf("server", "client"),
+										searchFilters
+									)
+									"loader" -> searchFilters = createFilterMenu(
+										"loader",
+										getModLoaders(),
+										searchFilters
+									)
+									"version" -> searchFilters = createFilterMenu(
+										"version",
+										// only use 25 results due to limit of select menus
+										getMinecraftVersions().subList(0, 24),
+										searchFilters
+									)
+									"license" -> searchFilters = createFilterMenu(
+										"license",
+										getLicenses(),
+										searchFilters
+									)
 								}
 							}
 						}
@@ -71,25 +96,27 @@ class Modrinth : Extension() {
 		}
 	}
 
-	private suspend fun searchModrinth() {
-		val route = "https://api.modrinth.com/v2/search?limit=5&query=iris"
+	private suspend fun searchModrinth(currentFilter: SearchData) {
+		val route = "https://api.modrinth.com/v2/search?limit=5"
 
 		val client = HttpClient()
 		val response = client.request(route)
 			.readBytes().decodeToString()
 		client.close()
 
-		println(response)
-
 		val json = Json { ignoreUnknownKeys = true }
 		val decodedResponse = json.decodeFromString<SearchResponseData>(response)
-		println(decodedResponse.hits[0].slug)
+
+		// for detekt
+		println(decodedResponse)
+		println(currentFilter)
 	}
 
 	private suspend fun EphemeralSelectMenuContext.createFilterMenu(
 		filterType: String,
-		filterOptions: MutableList<String>
-	) {
+		filterOptions: MutableList<String>,
+		currentFilter: SearchData
+	): SearchData {
 		respond {
 			components {
 				ephemeralSelectMenu {
@@ -99,11 +126,16 @@ class Modrinth : Extension() {
 						option(it, it)
 					}
 					action {
-						searchModrinth() // this needs to play with other selected options
+						this.selected.forEach {
+							currentFilter.facets[it] = filterType
+						}
+						searchModrinth(currentFilter)
+						// todo this is where the paginator needs to be updated
 					}
 				}
 			}
 		}
+		return currentFilter // return it so any other functions called can access it
 	}
 
 	private suspend fun getModCategories(): MutableList<String> {
@@ -142,8 +174,6 @@ class Modrinth : Extension() {
 		return modLoaders
 	}
 
-	// todo this errors because a select menu can only have 25 results
-	// returns only releases
 	private suspend fun getMinecraftVersions(): MutableList<String> {
 		val client = HttpClient()
 		val response = client.request("https://api.modrinth.com/v2/tag/game_version")
@@ -178,6 +208,19 @@ class Modrinth : Extension() {
 		}
 		return licenses
 	}
+
+	// todo This is a temporary solution for keyword. Ideally, it will be modals in the future.
+	inner class ModrinthArgs : Arguments() {
+		val keyword by string {
+			name = "keyword"
+			description = "The keyword to base your search off. Due to technical limitations, this cannot be edited."
+		}
+	}
+
+	data class SearchData(
+		val query: String,
+		val facets: MutableMap<String, String>, // the key is the facet and the value is the facet type
+	)
 
 	@Serializable
 	data class SearchResponseData(
